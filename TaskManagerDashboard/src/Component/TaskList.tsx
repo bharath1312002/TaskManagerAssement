@@ -17,15 +17,15 @@ const SortableTaskItem = ({ task, updateTask, deleteTask, darkMode, index }: any
     transform: CSS.Transform.toString(transform),
     transition,
     opacity: isDragging ? 0.5 : 1,
-    cursor: 'grab',
   };
   return (
-    <div ref={setNodeRef} style={style} {...attributes} {...listeners}>
+    <div ref={setNodeRef} style={style} {...attributes}>
       <TaskItem 
         task={task} 
         updateTask={updateTask} 
         deleteTask={deleteTask} 
         darkMode={darkMode}
+        dragListeners={listeners}
       />
     </div>
   );
