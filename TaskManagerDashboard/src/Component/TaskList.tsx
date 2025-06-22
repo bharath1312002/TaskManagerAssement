@@ -1,6 +1,6 @@
 import React from 'react';
-import { Droppable, Draggable } from 'react-beautiful-dnd';
-import type { DroppableProvided, DraggableProvided } from 'react-beautiful-dnd';
+import { useSortable } from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
 import TaskItem from './TaskItem';
 import type { Task } from '../types';
 
@@ -11,43 +11,46 @@ interface TaskListProps {
   darkMode: boolean;
 }
 
+const SortableTaskItem = ({ task, updateTask, deleteTask, darkMode, index }: any) => {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: task.id.toString() });
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.5 : 1,
+    cursor: 'grab',
+  };
+  return (
+    <div ref={setNodeRef} style={style} {...attributes} {...listeners}>
+      <TaskItem 
+        task={task} 
+        updateTask={updateTask} 
+        deleteTask={deleteTask} 
+        darkMode={darkMode}
+      />
+    </div>
+  );
+};
+
 const TaskList = ({ tasks, updateTask, deleteTask, darkMode }: TaskListProps) => {
   return (
-    <Droppable droppableId="tasks">
-      {(provided: DroppableProvided) => (
-        <div 
-          className="flex flex-col gap-4"
-          {...provided.droppableProps}
-          ref={provided.innerRef}
-        >
-          {tasks.length > 0 ? (
-            tasks.map((task: Task, index: number) => (
-              <Draggable key={task.id} draggableId={task.id.toString()} index={index}>
-                {(provided: DraggableProvided) => (
-                  <div
-                    ref={provided.innerRef}
-                    {...provided.draggableProps}
-                    {...provided.dragHandleProps}
-                  >
-                    <TaskItem 
-                      task={task} 
-                      updateTask={updateTask} 
-                      deleteTask={deleteTask} 
-                      darkMode={darkMode}
-                    />
-                  </div>
-                )}
-              </Draggable>
-            ))
-          ) : (
-            <p className="text-center p-5 rounded-lg bg-white dark:bg-gray-800 shadow-md text-gray-600 dark:text-gray-300">
-              No tasks found. Add a new task to get started!
-            </p>
-          )}
-          {provided.placeholder}
-        </div>
+    <div className="flex flex-col gap-4">
+      {tasks.length > 0 ? (
+        tasks.map((task: Task, index: number) => (
+          <SortableTaskItem
+            key={task.id}
+            task={task}
+            updateTask={updateTask}
+            deleteTask={deleteTask}
+            darkMode={darkMode}
+            index={index}
+          />
+        ))
+      ) : (
+        <p className="text-center p-5 rounded-lg bg-white dark:bg-gray-800 shadow-md text-gray-600 dark:text-gray-300">
+          No tasks found. Add a new task to get started!
+        </p>
       )}
-    </Droppable>
+    </div>
   );
 };
 

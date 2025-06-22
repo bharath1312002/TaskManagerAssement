@@ -1,9 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import TaskList from './Component/TaskList'
+import TaskList from './Component/TaskList';
 import TaskForm from './Component/TaskForm';
 import SearchFilter from './Component/SearchFilter';
-import { DragDropContext } from 'react-beautiful-dnd';
-import type { DropResult } from 'react-beautiful-dnd';
+import { DndContext, closestCenter } from '@dnd-kit/core';
+import { arrayMove, SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable';
 import type { Task } from './types';
 import { taskAPI } from './services/api';
 
@@ -16,7 +16,6 @@ function App() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  // Fetch initial tasks from API
   useEffect(() => {
     const fetchTasks = async () => {
       try {
@@ -31,10 +30,7 @@ function App() {
         setLoading(false);
       }
     };
-
     fetchTasks();
-    
-    // Load dark mode preference from localStorage
     const savedDarkMode = localStorage.getItem('darkMode');
     if (savedDarkMode !== null) {
       const isDarkMode = JSON.parse(savedDarkMode);
@@ -44,17 +40,14 @@ function App() {
 
   useEffect(() => {
     let result = tasks;
-    
     if (searchTerm) {
       result = result.filter(task => 
         task.title.toLowerCase().includes(searchTerm.toLowerCase())
       );
     }
-    
     if (statusFilter !== 'all') {
       result = result.filter(task => task.status === statusFilter);
     }
-    
     setFilteredTasks(result);
   }, [tasks, searchTerm, statusFilter]);
 
@@ -93,48 +86,25 @@ function App() {
     }
   };
 
-  const onDragEnd = (result: DropResult) => {
-    console.log('Drag ended:', result);
-    
-    if (!result.destination) return;
-    
-    // If source and destination are the same, no need to do anything
-    if (result.source.index === result.destination.index) return;
-    
-    console.log('Reordering tasks...');
-    
-    // Create a copy of the filtered tasks
-    const newFilteredTasks = Array.from(filteredTasks);
-    
-    // Remove the task from its source position
-    const [movedTask] = newFilteredTasks.splice(result.source.index, 1);
-    
-    // Insert the task at its destination position
-    newFilteredTasks.splice(result.destination.index, 0, movedTask);
-    
+  // dnd-kit onDragEnd
+  const handleDragEnd = (event: any) => {
+    const { active, over } = event;
+    if (!over || active.id === over.id) return;
+    const oldIndex = filteredTasks.findIndex(task => task.id.toString() === active.id);
+    const newIndex = filteredTasks.findIndex(task => task.id.toString() === over.id);
+    if (oldIndex === -1 || newIndex === -1) return;
+    const newFilteredTasks = arrayMove(filteredTasks, oldIndex, newIndex);
     // Update the original tasks array to match the new order
-    // We need to preserve tasks that are not in the filtered list
-    const newTasks = [...tasks];
-    
-    // Remove all filtered tasks from the original array
     const filteredTaskIds = new Set(filteredTasks.map(task => task.id));
-    const nonFilteredTasks = newTasks.filter(task => !filteredTaskIds.has(task.id));
-    
-    // Insert the reordered filtered tasks at the beginning
+    const nonFilteredTasks = tasks.filter(task => !filteredTaskIds.has(task.id));
     const finalTasks = [...newFilteredTasks, ...nonFilteredTasks];
-    
-    console.log('New tasks order:', finalTasks);
     setTasks(finalTasks);
   };
 
   const toggleDarkMode = () => {
     const newDarkMode = !darkMode;
     setDarkMode(newDarkMode);
-    
-    // Save to localStorage
     localStorage.setItem('darkMode', JSON.stringify(newDarkMode));
-    
-    // Apply dark class to html element for Tailwind dark mode
     if (newDarkMode) {
       document.documentElement.classList.add('dark');
     } else {
@@ -142,7 +112,6 @@ function App() {
     }
   };
 
-  // Initialize dark mode on component mount
   useEffect(() => {
     if (darkMode) {
       document.documentElement.classList.add('dark');
@@ -163,8 +132,6 @@ function App() {
             {darkMode ? '☀️ Light Mode' : '🌙 Dark Mode'}
           </button>
         </header>
-        
-        {/* Error Message */}
         {error && (
           <div className="mb-4 p-4 bg-red-100 dark:bg-red-900 border border-red-400 text-red-700 dark:text-red-300 rounded">
             {error}
@@ -176,9 +143,7 @@ function App() {
             </button>
           </div>
         )}
-        
         <TaskForm addTask={addTask} darkMode={darkMode} />
-        
         <SearchFilter 
           searchTerm={searchTerm}
           setSearchTerm={setSearchTerm}
@@ -186,22 +151,22 @@ function App() {
           setStatusFilter={setStatusFilter}
           darkMode={darkMode}
         />
-        
-        {/* Loading State */}
         {loading ? (
           <div className="flex justify-center items-center p-8">
             <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
             <span className="ml-2 text-gray-600 dark:text-gray-300">Loading tasks...</span>
           </div>
         ) : (
-          <DragDropContext onDragEnd={onDragEnd}>
-            <TaskList 
-              tasks={filteredTasks} 
-              updateTask={updateTask} 
-              deleteTask={deleteTask} 
-              darkMode={darkMode}
-            />
-          </DragDropContext>
+          <DndContext collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+            <SortableContext items={filteredTasks.map(task => task.id.toString())} strategy={verticalListSortingStrategy}>
+              <TaskList 
+                tasks={filteredTasks} 
+                updateTask={updateTask} 
+                deleteTask={deleteTask} 
+                darkMode={darkMode}
+              />
+            </SortableContext>
+          </DndContext>
         )}
       </div>
     </div>
